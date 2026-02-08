@@ -4,7 +4,6 @@ generator client {
 
 datasource db {
   provider = "sqlite"
-  url      = env("DATABASE_URL")
 }
 
 model Entry {
@@ -13,3 +12,4 @@ model Entry {
   hours       Float
   createdAt   DateTime @default(now())
 }
+
