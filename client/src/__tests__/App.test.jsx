@@ -31,6 +31,7 @@ const toLocalDateTimeInputValue = (date) => {
 
 beforeEach(() => {
   global.fetch = vi.fn();
+  localStorage.clear();
 });
 
 afterEach(() => {
@@ -78,6 +79,8 @@ describe('App', () => {
 
     render(<App />);
 
+    fireEvent.click(await screen.findByRole('button', { name: /add manual event/i }));
+
     const futureDate = new Date(Date.now() + 24 * 60 * 60 * 1000);
     const input = await screen.findByLabelText(/when/i);
     const futureValue = toLocalDateTimeInputValue(futureDate);
@@ -93,7 +96,7 @@ describe('App', () => {
     expect(await screen.findByText(/manual events must be in the past/i)).toBeInTheDocument();
   });
 
-  it('renders seven day tiles for the week summary', async () => {
+  it('renders seven day columns for the week summary', async () => {
     const weekSummary = makeWeekSummary(new Date());
     global.fetch
       .mockImplementationOnce(() => makeResponse([]))
@@ -108,7 +111,7 @@ describe('App', () => {
     const { container } = render(<App />);
 
     await waitFor(() => {
-      expect(container.querySelectorAll('.day-tile').length).toBe(7);
+      expect(container.querySelectorAll('.day-column').length).toBe(7);
     });
   });
 
@@ -159,6 +162,63 @@ describe('App', () => {
         '/api/clock-events/1',
         expect.objectContaining({ method: 'DELETE' })
       );
+    });
+  });
+
+  it('loads settings from localStorage', async () => {
+    localStorage.setItem('hourManagement.targetHours', '6.5');
+    localStorage.setItem('hourManagement.hoursShown', '12');
+
+    const weekSummary = makeWeekSummary(new Date());
+    global.fetch
+      .mockImplementationOnce(() => makeResponse([]))
+      .mockImplementationOnce(() => makeResponse({ days: weekSummary }))
+      .mockImplementationOnce(() =>
+        makeResponse({
+          clockedIn: false,
+          lastEvent: null
+        })
+      );
+
+    render(<App />);
+
+    fireEvent.click(await screen.findByRole('button', { name: /settings/i }));
+
+    expect(await screen.findByDisplayValue('6.5')).toBeInTheDocument();
+    expect(screen.getByDisplayValue('12')).toBeInTheDocument();
+    expect(localStorage.getItem('hourManagement.targetHours')).toBe('6.5');
+    expect(localStorage.getItem('hourManagement.hoursShown')).toBe('12');
+  });
+
+  it('persists settings changes to localStorage', async () => {
+    const weekSummary = makeWeekSummary(new Date());
+    global.fetch
+      .mockImplementationOnce(() => makeResponse([]))
+      .mockImplementationOnce(() => makeResponse({ days: weekSummary }))
+      .mockImplementationOnce(() =>
+        makeResponse({
+          clockedIn: false,
+          lastEvent: null
+        })
+      );
+
+    const setItemSpy = vi.spyOn(Storage.prototype, 'setItem');
+    render(<App />);
+
+    fireEvent.click(await screen.findByRole('button', { name: /settings/i }));
+
+    const targetInput = await screen.findByLabelText(/target hours\/day/i);
+    fireEvent.change(targetInput, { target: { value: '7.25' } });
+
+    await waitFor(() => {
+      expect(setItemSpy).toHaveBeenCalledWith('hourManagement.targetHours', '7.25');
+    });
+
+    const shownInput = screen.getByLabelText(/hours shown/i);
+    fireEvent.change(shownInput, { target: { value: '14' } });
+
+    await waitFor(() => {
+      expect(setItemSpy).toHaveBeenCalledWith('hourManagement.hoursShown', '14');
     });
   });
 });
