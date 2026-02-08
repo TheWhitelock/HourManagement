@@ -1,0 +1,63 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Dev: Full Stack",
+      "type": "shell",
+      "command": "G:\\nodejs\\npm.cmd",
+      "group": {
+        "kind": "build"
+      },
+      "args": [
+        "run",
+        "dev"
+      ],
+      "isBackground": true,
+      "problemMatcher": []
+    },
+    {
+      "label": "Dev: Server",
+      "type": "shell",
+      "command": "G:\\nodejs\\npm.cmd",
+      "group": "build",
+      "args": [
+        "run",
+        "dev",
+        "--workspace",
+        "server"
+      ],
+      "isBackground": true,
+      "problemMatcher": []
+    },
+    {
+      "label": "Dev: Client",
+      "type": "shell",
+      "command": "G:\\nodejs\\npm.cmd",
+      "group": "build",
+      "args": [
+        "run",
+        "dev",
+        "--workspace",
+        "client"
+      ],
+      "isBackground": true,
+      "problemMatcher": []
+    },
+    {
+      "label": "DB: Prisma Migrate",
+      "type": "shell",
+      "command": "G:\\nodejs\\npm.cmd",
+      "group": "build",
+      "args": [
+        "run",
+        "prisma:migrate",
+        "--workspace",
+        "server",
+        "--",
+        "--name",
+        "init"
+      ],
+      "problemMatcher": []
+    }
+  ]
+}
