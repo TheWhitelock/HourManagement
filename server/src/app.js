@@ -1,7 +1,7 @@
+import path from 'node:path';
 import express from 'express';
 import cors from 'cors';
-import { PrismaClient } from '@prisma/client';
-import { PrismaLibSql } from '@prisma/adapter-libsql';
+import { createDatabase } from './db.js';
 
 const padNumber = (value) => String(value).padStart(2, '0');
 const toDateKey = (date) =>
@@ -99,22 +99,50 @@ const computeDailySummary = (events, rangeStart, rangeEnd, now) => {
   return days;
 };
 
-export const createPrisma = (dbUrl = process.env.DATABASE_URL || 'file:./dev.db') => {
-  const adapter = new PrismaLibSql({ url: dbUrl });
-  return new PrismaClient({ adapter });
-};
+const resolveDbPath = (dbPath = process.env.DB_PATH || './dev.db') =>
+  dbPath && path.isAbsolute(dbPath) ? dbPath : path.resolve(process.cwd(), dbPath);
 
-export const createApp = ({ dbUrl, prisma } = {}) => {
+const mapEvent = (row) =>
+  row
+    ? {
+        id: row.id,
+        type: row.type,
+        occurredAt: row.occurredAt,
+        createdAt: row.createdAt
+      }
+    : null;
+
+export const createApp = async ({ dbPath } = {}) => {
   const app = express();
-  const client = prisma ?? createPrisma(dbUrl);
+  const db = await createDatabase(resolveDbPath(dbPath));
 
   app.use(cors());
   app.use(express.json());
 
-  const getLatestEvent = async () =>
-    client.clockEvent.findFirst({
-      orderBy: [{ occurredAt: 'desc' }, { createdAt: 'desc' }]
-    });
+  const getLatestEvent = async () => {
+    const rows = db.all(
+      `SELECT id, type, occurredAt, createdAt
+       FROM clock_events
+       ORDER BY datetime(occurredAt) DESC, datetime(createdAt) DESC
+       LIMIT 1`
+    );
+    return mapEvent(rows[0]);
+  };
+
+  const getEventById = (id) => {
+    const rows = db.all(
+      `SELECT id, type, occurredAt, createdAt
+       FROM clock_events
+       WHERE id = ?`,
+      [id]
+    );
+    return mapEvent(rows[0]);
+  };
+
+  const getLastInsertId = () => {
+    const rows = db.all('SELECT last_insert_rowid() as id');
+    return rows[0]?.id;
+  };
 
   const getClockStatus = async () => {
     const lastEvent = await getLatestEvent();
@@ -132,21 +160,27 @@ export const createApp = ({ dbUrl, prisma } = {}) => {
   app.get('/api/clock-events', async (req, res) => {
     const from = parseDateParam(req.query.from);
     const to = parseDateParam(req.query.to);
-    const filters = {};
+    const params = [];
+    let where = '';
 
     if (from) {
-      filters.gte = startOfDay(from);
+      params.push(startOfDay(from).toISOString());
+      where += params.length === 1 ? 'WHERE occurredAt >= ?' : ' AND occurredAt >= ?';
     }
     if (to) {
-      filters.lte = endOfDay(to);
+      params.push(endOfDay(to).toISOString());
+      where += params.length === 1 ? 'WHERE occurredAt <= ?' : ' AND occurredAt <= ?';
     }
 
-    const events = await client.clockEvent.findMany({
-      where: Object.keys(filters).length ? { occurredAt: filters } : undefined,
-      orderBy: [{ occurredAt: 'asc' }, { createdAt: 'asc' }]
-    });
+    const rows = db.all(
+      `SELECT id, type, occurredAt, createdAt
+       FROM clock_events
+       ${where}
+       ORDER BY datetime(occurredAt) ASC, datetime(createdAt) ASC`,
+      params
+    );
 
-    res.json(events);
+    res.json(rows.map(mapEvent));
   });
 
   app.get('/api/clock-summary', async (req, res) => {
@@ -160,10 +194,17 @@ export const createApp = ({ dbUrl, prisma } = {}) => {
 
     const rangeStart = startOfDay(from);
     const rangeEnd = endOfDay(to);
-    const events = await client.clockEvent.findMany({
-      where: { occurredAt: { lte: rangeEnd } },
-      orderBy: [{ occurredAt: 'asc' }, { createdAt: 'asc' }]
-    });
+    const rows = db.all(
+      `SELECT id, type, occurredAt, createdAt
+       FROM clock_events
+       WHERE occurredAt <= ?
+       ORDER BY datetime(occurredAt) ASC, datetime(createdAt) ASC`,
+      [rangeEnd.toISOString()]
+    );
+    const events = rows.map((row) => ({
+      ...mapEvent(row),
+      occurredAt: new Date(row.occurredAt)
+    }));
 
     const summary = computeDailySummary(events, rangeStart, rangeEnd, new Date());
     res.json({
@@ -179,13 +220,13 @@ export const createApp = ({ dbUrl, prisma } = {}) => {
       return;
     }
 
-    const event = await client.clockEvent.create({
-      data: {
-        type: 'IN',
-        occurredAt: new Date()
-      }
-    });
+    const now = new Date().toISOString();
+    await db.run(
+      `INSERT INTO clock_events (type, occurredAt, createdAt) VALUES (?, ?, ?)`,
+      ['IN', now, now]
+    );
 
+    const event = getEventById(getLastInsertId());
     res.status(201).json(event);
   });
 
@@ -196,13 +237,13 @@ export const createApp = ({ dbUrl, prisma } = {}) => {
       return;
     }
 
-    const event = await client.clockEvent.create({
-      data: {
-        type: 'OUT',
-        occurredAt: new Date()
-      }
-    });
+    const now = new Date().toISOString();
+    await db.run(
+      `INSERT INTO clock_events (type, occurredAt, createdAt) VALUES (?, ?, ?)`,
+      ['OUT', now, now]
+    );
 
+    const event = getEventById(getLastInsertId());
     res.status(201).json(event);
   });
 
@@ -226,13 +267,13 @@ export const createApp = ({ dbUrl, prisma } = {}) => {
       return;
     }
 
-    const event = await client.clockEvent.create({
-      data: {
-        type,
-        occurredAt: parsed
-      }
-    });
+    const createdAt = new Date().toISOString();
+    await db.run(
+      `INSERT INTO clock_events (type, occurredAt, createdAt) VALUES (?, ?, ?)`,
+      [type, parsed.toISOString(), createdAt]
+    );
 
+    const event = getEventById(getLastInsertId());
     res.status(201).json(event);
   });
 
@@ -243,17 +284,26 @@ export const createApp = ({ dbUrl, prisma } = {}) => {
       return;
     }
 
-    const existing = await client.clockEvent.findUnique({ where: { id } });
+    const existingRows = db.all(
+      `SELECT id, type, occurredAt, createdAt FROM clock_events WHERE id = ?`,
+      [id]
+    );
+    const existing = mapEvent(existingRows[0]);
     if (!existing) {
       res.status(404).json({ error: 'Event not found.' });
       return;
     }
 
     const currentStatus = await getClockStatus();
-    const latestAfterDelete = await client.clockEvent.findFirst({
-      where: { id: { not: id } },
-      orderBy: [{ occurredAt: 'desc' }, { createdAt: 'desc' }]
-    });
+    const remainingRows = db.all(
+      `SELECT id, type, occurredAt, createdAt
+       FROM clock_events
+       WHERE id != ?
+       ORDER BY datetime(occurredAt) DESC, datetime(createdAt) DESC
+       LIMIT 1`,
+      [id]
+    );
+    const latestAfterDelete = mapEvent(remainingRows[0]);
 
     const nextClockedIn = latestAfterDelete?.type === 'IN';
     res.json({
@@ -270,13 +320,17 @@ export const createApp = ({ dbUrl, prisma } = {}) => {
       return;
     }
 
-    const existing = await client.clockEvent.findUnique({ where: { id } });
+    const existingRows = db.all(
+      `SELECT id, type, occurredAt, createdAt FROM clock_events WHERE id = ?`,
+      [id]
+    );
+    const existing = mapEvent(existingRows[0]);
     if (!existing) {
       res.status(404).json({ error: 'Event not found.' });
       return;
     }
 
-    await client.clockEvent.delete({ where: { id } });
+    await db.run(`DELETE FROM clock_events WHERE id = ?`, [id]);
 
     res.json({
       deletedId: id,
@@ -284,5 +338,5 @@ export const createApp = ({ dbUrl, prisma } = {}) => {
     });
   });
 
-  return { app, prisma: client };
+  return { app, db };
 };

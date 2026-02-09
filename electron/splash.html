@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; style-src 'self' 'unsafe-inline'"
+    />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Hour Management</title>
+    <style>
+      :root {
+        font-family: 'Segoe UI', system-ui, sans-serif;
+        color: #f8f4ed;
+      }
+
+      html,
+      body {
+        margin: 0;
+        min-height: 100vh;
+        display: grid;
+        place-items: center;
+        background: transparent;
+        overflow: hidden;
+        padding: 32px;
+        box-sizing: border-box;
+      }
+
+      .card {
+        width: 100%;
+        max-width: 460px;
+        border-radius: 20px;
+        padding: 32px;
+        background: radial-gradient(circle at top right, rgba(255, 200, 150, 0.35), transparent 55%),
+          linear-gradient(135deg, #1d2229 0%, #0f1318 100%);
+        box-shadow: 0 30px 60px rgba(8, 10, 12, 0.45);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        display: grid;
+        gap: 18px;
+      }
+
+      h1 {
+        font-size: 1.6rem;
+        margin: 0;
+        font-weight: 600;
+      }
+
+      p {
+        margin: 0;
+        color: rgba(248, 244, 237, 0.75);
+        line-height: 1.4;
+      }
+
+      .loader {
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+        font-size: 0.9rem;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+      }
+
+      .dot {
+        width: 10px;
+        height: 10px;
+        border-radius: 999px;
+        background: #f1b77a;
+        box-shadow: 0 0 12px rgba(241, 183, 122, 0.7);
+        animation: pulse 1.2s infinite ease-in-out;
+      }
+
+      .dot:nth-child(2) {
+        animation-delay: 0.2s;
+      }
+
+      .dot:nth-child(3) {
+        animation-delay: 0.4s;
+      }
+
+      @keyframes pulse {
+        0%,
+        100% {
+          transform: scale(0.8);
+          opacity: 0.6;
+        }
+        50% {
+          transform: scale(1.1);
+          opacity: 1;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="card">
+      <h1>Hour Management</h1>
+      <p>Starting your local workspace and time tracker.</p>
+      <div class="loader">
+        <span class="dot"></span>
+        <span class="dot"></span>
+        <span class="dot"></span>
+        Launching
+      </div>
+    </div>
+  </body>
+</html>

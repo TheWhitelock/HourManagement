@@ -66,6 +66,39 @@
   margin: 0 0 12px;
 }
 
+.status-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.status-header .status-label {
+  margin: 0;
+}
+
+.status-badge {
+  border-radius: 999px;
+  padding: 6px 10px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+}
+
+.status-badge.ok {
+  background: rgba(27, 92, 79, 0.15);
+  color: #1b5c4f;
+  border: 1px solid rgba(27, 92, 79, 0.4);
+}
+
+.status-badge.down {
+  background: rgba(192, 86, 33, 0.12);
+  color: #a2471b;
+  border: 1px solid rgba(192, 86, 33, 0.35);
+}
+
 .status-pill {
   display: inline-flex;
   align-items: center;
@@ -441,6 +474,31 @@ button:not(:disabled):hover {
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
   gap: 16px;
   align-items: end;
+}
+
+.settings-tools {
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid rgba(117, 94, 70, 0.2);
+  display: grid;
+  gap: 14px;
+}
+
+.settings-tools h3 {
+  margin: 0 0 6px;
+  font-size: 1.1rem;
+}
+
+.settings-actions {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.settings-status {
+  margin: 0;
+  font-weight: 600;
+  color: #6b4a2b;
 }
 
 .settings-popover {

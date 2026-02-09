@@ -6,7 +6,7 @@ Local-first time tracking with a weekly dashboard, manual adjustments, and a sim
 
 - **Frontend:** React + Vite
 - **Backend:** Node.js + Express (REST)
-- **Database:** SQLite via Prisma + `@libsql/client` adapter
+- **Database:** SQLite via `sql.js` (WASM, file-backed)
 
 ## Getting Started
 
@@ -24,7 +24,16 @@ npm install
 
 ```bash
 cp server/.env.example server/.env
-npm run prisma:migrate --workspace server -- --name init
+```
+
+Set `DB_PATH` to choose where the SQLite file lives. The database file is created automatically on first run.
+
+### Optional: Configure the client API base
+
+If the client is served from a `file://` URL (desktop wrapper), set an API base URL.
+
+```bash
+cp client/.env.example client/.env
 ```
 
 ### Start the app
@@ -35,6 +44,28 @@ npm run dev
 
 - React app: <http://localhost:5173>
 - API server: <http://localhost:3001>
+
+## Desktop (Electron)
+
+### Run in development
+
+```bash
+npm run desktop:dev
+```
+
+### Build a Windows installer
+
+```bash
+npm run electron:build
+```
+
+The installer is written to `dist-electron/` (for example `dist-electron/HourManagement-Setup-0.0.1.exe`).
+
+### App icon
+
+Electron Builder needs a Windows `.ico` file if you want a custom icon. Place it at
+`electron/assets/icon.ico` and then add `"icon": "electron/assets/icon.ico"` under the
+`build.win` section in `package.json`.
 
 ## REST API
 

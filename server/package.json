@@ -1,25 +1,20 @@
 {
     "name":  "hour-management-server",
     "private":  true,
-    "version":  "0.0.1",
+    "version":  "0.1.2",
     "type":  "module",
     "scripts":  {
-                    "dev":  "node --watch src/index.js",
-                    "start":  "node src/index.js",
-                    "prisma:migrate":  "node -e \"require('fs').closeSync(require('fs').openSync('dev.db','a'))\" && prisma migrate dev",
-                    "prisma:studio":  "prisma studio",
-                    "test":  "vitest"
-                },
+    "dev":  "node --watch src/index.js",
+    "start":  "node src/index.js",
+    "test":  "vitest"
+},
     "dependencies":  {
-                         "@prisma/client":  "^7.3.0",
-                         "@prisma/adapter-libsql":  "^7.3.0",
-                         "@libsql/client":  "^0.9.0",
                          "express":  "^4.19.2",
                          "dotenv":  "^16.4.5",
-                         "cors":  "^2.8.5"
+                         "cors":  "^2.8.5",
+                         "sql.js": "^1.10.3"
                      },
     "devDependencies":  {
-                            "prisma":  "^7.3.0",
                             "supertest":  "^7.1.1",
                             "vitest":  "^1.6.0"
                         }

@@ -52,6 +52,20 @@ const getIsoWeekNumber = (value) => {
   return 1 + Math.round(diff / (7 * 24 * 60 * 60 * 1000));
 };
 
+const inferApiBase = () => {
+  const envBase = (import.meta?.env?.VITE_API_BASE || '').replace(/\/$/, '');
+  if (envBase) {
+    return envBase;
+  }
+  if (typeof window !== 'undefined' && window.location.protocol === 'file:') {
+    return 'http://127.0.0.1:3001';
+  }
+  return '';
+};
+
+const apiBase = inferApiBase();
+const apiUrl = (path) => (apiBase ? `${apiBase}${path}` : path);
+
 export default function App() {
   const getStoredNumber = (key, fallback) => {
     if (typeof window === 'undefined') {
@@ -79,10 +93,13 @@ export default function App() {
   const [isManualOpen, setIsManualOpen] = useState(false);
   const [selectedDateKey, setSelectedDateKey] = useState(toDateKey(new Date()));
   const [showSettings, setShowSettings] = useState(false);
+  const [settingsStatus, setSettingsStatus] = useState('');
+  const [serverOk, setServerOk] = useState(true);
   const [manualForm, setManualForm] = useState({
     type: 'IN',
     occurredAt: ''
   });
+  const hasDesktopBridge = typeof window !== 'undefined' && window.electronAPI;
 
   const weekRangeLabel = useMemo(() => {
     const startLabel = formatDateLabel(weekRange.start);
@@ -150,21 +167,34 @@ export default function App() {
     const from = toDateKey(range.start);
     const to = toDateKey(range.end);
 
-    const [eventsResponse, summaryResponse, statusResponse] = await Promise.all([
-      fetch(`/api/clock-events?from=${from}&to=${to}`),
-      fetch(`/api/clock-summary?from=${from}&to=${to}`),
-      fetch('/api/clock-status')
-    ]);
+    try {
+      const [eventsResponse, summaryResponse, statusResponse] = await Promise.all([
+        fetch(apiUrl(`/api/clock-events?from=${from}&to=${to}`)),
+        fetch(apiUrl(`/api/clock-summary?from=${from}&to=${to}`)),
+        fetch(apiUrl('/api/clock-status'))
+      ]);
 
-    const [eventsData, summaryData, statusData] = await Promise.all([
-      eventsResponse.json(),
-      summaryResponse.json(),
-      statusResponse.json()
-    ]);
+      if (!eventsResponse.ok || !summaryResponse.ok || !statusResponse.ok) {
+        throw new Error('API request failed.');
+      }
 
-    setEvents(eventsData);
-    setWeekSummary(summaryData.days || []);
-    setClockStatus(statusData);
+      const [eventsData, summaryData, statusData] = await Promise.all([
+        eventsResponse.json(),
+        summaryResponse.json(),
+        statusResponse.json()
+      ]);
+
+      setEvents(eventsData);
+      setWeekSummary(summaryData.days || []);
+      setClockStatus(statusData);
+      setStatus('');
+      setServerOk(true);
+    } catch (error) {
+      setStatus(
+        'Unable to reach the local server. If this is the desktop app, wait a moment and retry.'
+      );
+      setServerOk(false);
+    }
   };
 
   const handleWeekShift = (direction) => {
@@ -217,14 +247,20 @@ export default function App() {
 
   const handleClockAction = async (action) => {
     setStatus('Updating...');
-    const response = await fetch(`/api/clock-${action}`, { method: 'POST' });
-    if (!response.ok) {
-      const data = await response.json().catch(() => ({}));
-      setStatus(data.error || 'Something went wrong.');
-      return;
+    try {
+      const response = await fetch(apiUrl(`/api/clock-${action}`), { method: 'POST' });
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        setStatus(data.error || 'Something went wrong.');
+        return;
+      }
+      setStatus(action === 'in' ? 'Clocked in.' : 'Clocked out.');
+      await loadWeek();
+      setServerOk(true);
+    } catch (error) {
+      setStatus('Unable to reach the local server.');
+      setServerOk(false);
     }
-    setStatus(action === 'in' ? 'Clocked in.' : 'Clocked out.');
-    await loadWeek();
   };
 
   const handleManualChange = (event) => {
@@ -245,58 +281,100 @@ export default function App() {
       return;
     }
 
-    const response = await fetch('/api/clock-events', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        type: manualForm.type,
-        occurredAt: parsed.toISOString()
-      })
-    });
+    try {
+      const response = await fetch(apiUrl('/api/clock-events'), {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          type: manualForm.type,
+          occurredAt: parsed.toISOString()
+        })
+      });
 
-    if (!response.ok) {
-      const data = await response.json().catch(() => ({}));
-      setStatus(data.error || 'Something went wrong.');
-      return;
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        setStatus(data.error || 'Something went wrong.');
+        return;
+      }
+
+      setStatus('Manual event added.');
+      setManualForm((prev) => ({ ...prev, occurredAt: '' }));
+      setIsManualOpen(false);
+      await loadWeek();
+      setServerOk(true);
+    } catch (error) {
+      setStatus('Unable to reach the local server.');
+      setServerOk(false);
     }
-
-    setStatus('Manual event added.');
-    setManualForm((prev) => ({ ...prev, occurredAt: '' }));
-    setIsManualOpen(false);
-    await loadWeek();
   };
 
   const handleDeleteEvent = async (id) => {
-    const impactResponse = await fetch(`/api/clock-events/${id}/impact`);
-    if (!impactResponse.ok) {
-      const data = await impactResponse.json().catch(() => ({}));
-      setStatus(data.error || 'Something went wrong.');
-      return;
-    }
-
-    const impact = await impactResponse.json();
-    if (impact.willChangeStatus) {
-      const nextLabel = impact.nextStatus === 'IN' ? 'clocked in' : 'clocked out';
-      const ok = window.confirm(
-        `Note: deleting this event will set your status to ${nextLabel}. Are you sure?`
-      );
-      if (!ok) {
-        setStatus('Deletion cancelled.');
+    try {
+      const impactResponse = await fetch(apiUrl(`/api/clock-events/${id}/impact`));
+      if (!impactResponse.ok) {
+        const data = await impactResponse.json().catch(() => ({}));
+        setStatus(data.error || 'Something went wrong.');
         return;
       }
-    }
 
-    setStatus('Deleting event...');
-    const response = await fetch(`/api/clock-events/${id}`, { method: 'DELETE' });
-    if (!response.ok) {
-      const data = await response.json().catch(() => ({}));
-      setStatus(data.error || 'Something went wrong.');
+      const impact = await impactResponse.json();
+      if (impact.willChangeStatus) {
+        const nextLabel = impact.nextStatus === 'IN' ? 'clocked in' : 'clocked out';
+        const ok = window.confirm(
+          `Note: deleting this event will set your status to ${nextLabel}. Are you sure?`
+        );
+        if (!ok) {
+          setStatus('Deletion cancelled.');
+          return;
+        }
+      }
+
+      setStatus('Deleting event...');
+      const response = await fetch(apiUrl(`/api/clock-events/${id}`), { method: 'DELETE' });
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        setStatus(data.error || 'Something went wrong.');
+        return;
+      }
+      setStatus('Event deleted.');
+      await loadWeek();
+      setServerOk(true);
+    } catch (error) {
+      setStatus('Unable to reach the local server.');
+      setServerOk(false);
+    }
+  };
+
+  const handleOpenDataFolder = async () => {
+    if (!hasDesktopBridge) {
+      setSettingsStatus('Desktop tools are available in the Electron app only.');
       return;
     }
-    setStatus('Event deleted.');
-    await loadWeek();
+
+    setSettingsStatus('Opening data folder...');
+    const result = await window.electronAPI.openUserData();
+    if (!result?.ok) {
+      setSettingsStatus(result?.error || 'Unable to open data folder.');
+      return;
+    }
+    setSettingsStatus('Data folder opened.');
+  };
+
+  const handleExportBackup = async () => {
+    if (!hasDesktopBridge) {
+      setSettingsStatus('Desktop tools are available in the Electron app only.');
+      return;
+    }
+
+    setSettingsStatus('Preparing backup...');
+    const result = await window.electronAPI.exportBackup();
+    if (!result?.ok) {
+      setSettingsStatus(result?.error || 'Backup failed.');
+      return;
+    }
+    setSettingsStatus('Backup exported.');
   };
 
   return (
@@ -311,7 +389,12 @@ export default function App() {
           </p>
         </div>
         <div className="status-card">
-          <p className="status-label">Current status</p>
+          <div className="status-header">
+            <p className="status-label">Current status</p>
+            <span className={`status-badge ${serverOk ? 'ok' : 'down'}`}>
+              {serverOk ? 'Server: online' : 'Server: offline'}
+            </span>
+          </div>
           <div className={`status-pill ${clockStatus.clockedIn ? 'in' : 'out'}`}>
             {clockStatus.clockedIn ? 'Clocked in' : 'Clocked out'}
           </div>
@@ -547,6 +630,23 @@ export default function App() {
                   }
                 />
               </label>
+            </div>
+            <div className="settings-tools">
+              <div>
+                <h3>Desktop tools</h3>
+                <p className="card-subtitle">
+                  Manage your local data when running the Electron app.
+                </p>
+              </div>
+              <div className="settings-actions">
+                <button type="button" className="ghost" onClick={handleOpenDataFolder}>
+                  Open data folder
+                </button>
+                <button type="button" className="primary" onClick={handleExportBackup}>
+                  Export backup
+                </button>
+              </div>
+              {settingsStatus && <p className="settings-status">{settingsStatus}</p>}
             </div>
           </div>
         </div>

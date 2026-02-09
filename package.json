@@ -1,18 +1,66 @@
 {
   "name": "hour-management",
   "private": true,
+  "version": "0.1.2",
+  "description": "Local-first time tracking with a weekly dashboard and manual adjustments.",
+  "author": "Hour Management",
+  "main": "electron/main.cjs",
   "workspaces": [
     "client",
     "server"
   ],
   "scripts": {
     "dev": "concurrently \"npm:dev --workspace client\" \"npm:dev --workspace server\"",
+    "desktop:dev": "concurrently \"npm:dev --workspace client\" \"npm:dev --workspace server\" \"npm:electron:dev\"",
+    "electron:dev": "wait-on http://localhost:5173 && wait-on http://127.0.0.1:3001/api/clock-status && cross-env ELECTRON_START_URL=http://localhost:5173 electron electron/main.cjs",
     "build": "npm run build --workspace client",
+    "build:electron-client": "npm run build --workspace client -- --mode electron",
+    "electron:build": "npm run build:electron-client && electron-builder",
     "lint": "npm run lint --workspace client",
     "format": "prettier --write ."
   },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "sql.js": "^1.10.3"
+  },
+  "build": {
+    "appId": "com.hourmanagement.app",
+    "productName": "Hour Management",
+    "artifactName": "HourManagement-Setup-${version}.${ext}",
+    "copyright": "Copyright © 2026",
+    "directories": {
+      "output": "dist-electron"
+    },
+    "files": [
+      "electron/**",
+      "client/dist/**",
+      "server/**",
+      "node_modules/sql.js/**",
+      "package.json"
+    ],
+    "asar": true,
+    "asarUnpack": [
+      "server/**",
+      "node_modules/sql.js/**"
+    ],
+    "win": {
+      "target": "nsis",
+      "publisherName": "Hour Management"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true
+    }
+  },
   "devDependencies": {
     "concurrently": "^8.2.2",
-    "prettier": "^3.2.5"
+    "cross-env": "^7.0.3",
+    "electron": "^30.0.0",
+    "electron-builder": "^24.13.3",
+    "prettier": "^3.2.5",
+    "wait-on": "^7.2.0"
   }
 }

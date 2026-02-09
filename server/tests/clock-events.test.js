@@ -1,6 +1,5 @@
 import { beforeAll, beforeEach, afterAll, describe, expect, it } from 'vitest';
 import request from 'supertest';
-import { execSync } from 'child_process';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -9,20 +8,12 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const serverRoot = path.resolve(__dirname, '..');
 const testDbFilename = `dev.test.${Date.now()}.db`;
 const testDbPath = path.join(serverRoot, testDbFilename);
-const testDbUrl = `file:./${testDbFilename}`;
 
 const padNumber = (value) => String(value).padStart(2, '0');
 const toDateKey = (date) =>
   `${date.getFullYear()}-${padNumber(date.getMonth() + 1)}-${padNumber(date.getDate())}`;
 
-const runPrismaCommand = (command) => {
-  execSync(`powershell -Command "$env:DATABASE_URL='${testDbUrl}'; ${command}"`, {
-    cwd: serverRoot,
-    stdio: 'inherit'
-  });
-};
-
-const migrateDatabase = () => {
+const removeTestDb = () => {
   if (fs.existsSync(testDbPath)) {
     try {
       fs.rmSync(testDbPath, { force: true });
@@ -30,41 +21,28 @@ const migrateDatabase = () => {
       // Best-effort cleanup only.
     }
   }
-
-  fs.closeSync(fs.openSync(testDbPath, 'a'));
-  runPrismaCommand('npx prisma migrate deploy');
-  runPrismaCommand('npx prisma generate');
 };
 
 describe('clock events API', () => {
   let app;
-  let prisma;
   let createApp;
 
   beforeAll(async () => {
-    process.env.DATABASE_URL = testDbUrl;
-    migrateDatabase();
+    process.env.DB_PATH = testDbPath;
+    removeTestDb();
     ({ createApp } = await import('../src/app.js'));
-    const created = createApp({ dbUrl: testDbUrl });
+    const created = await createApp({ dbPath: testDbPath });
     app = created.app;
-    prisma = created.prisma;
   });
 
   beforeEach(async () => {
-    await prisma.clockEvent.deleteMany();
+    removeTestDb();
+    const created = await createApp({ dbPath: testDbPath });
+    app = created.app;
   });
 
   afterAll(async () => {
-    if (prisma) {
-      await prisma.$disconnect();
-    }
-    if (fs.existsSync(testDbPath)) {
-      try {
-        fs.rmSync(testDbPath, { force: true });
-      } catch {
-        // Ignore deletion errors on Windows file locks.
-      }
-    }
+    removeTestDb();
   });
 
   it('clocks in and out successfully', async () => {
@@ -101,17 +79,21 @@ describe('clock events API', () => {
     const t2 = new Date(now.getTime() - 2 * 60 * 60 * 1000);
     const t3 = new Date(now.getTime() - 30 * 60 * 1000);
 
-    await prisma.clockEvent.createMany({
-      data: [
-        { type: 'IN', occurredAt: t1 },
-        { type: 'OUT', occurredAt: t2 },
-        { type: 'IN', occurredAt: t3 }
-      ]
+    await request(app).post('/api/clock-events').send({
+      type: 'IN',
+      occurredAt: t1.toISOString()
+    });
+    await request(app).post('/api/clock-events').send({
+      type: 'OUT',
+      occurredAt: t2.toISOString()
+    });
+    await request(app).post('/api/clock-events').send({
+      type: 'IN',
+      occurredAt: t3.toISOString()
     });
 
-    const lastEvent = await prisma.clockEvent.findFirst({
-      orderBy: [{ occurredAt: 'desc' }, { createdAt: 'desc' }]
-    });
+    const latestResponse = await request(app).get('/api/clock-status');
+    const lastEvent = latestResponse.body.lastEvent;
 
     const response = await request(app).delete(`/api/clock-events/${lastEvent.id}`);
     expect(response.status).toBe(200);
@@ -123,16 +105,17 @@ describe('clock events API', () => {
     const t1 = new Date(now.getTime() - 2 * 60 * 60 * 1000);
     const t2 = new Date(now.getTime() - 60 * 60 * 1000);
 
-    await prisma.clockEvent.createMany({
-      data: [
-        { type: 'IN', occurredAt: t1 },
-        { type: 'OUT', occurredAt: t2 }
-      ]
+    await request(app).post('/api/clock-events').send({
+      type: 'IN',
+      occurredAt: t1.toISOString()
+    });
+    await request(app).post('/api/clock-events').send({
+      type: 'OUT',
+      occurredAt: t2.toISOString()
     });
 
-    const latest = await prisma.clockEvent.findFirst({
-      orderBy: [{ occurredAt: 'desc' }, { createdAt: 'desc' }]
-    });
+    const latestResponse = await request(app).get('/api/clock-status');
+    const latest = latestResponse.body.lastEvent;
 
     const response = await request(app).get(`/api/clock-events/${latest.id}/impact`);
     expect(response.status).toBe(200);
@@ -156,7 +139,12 @@ describe('clock events API', () => {
       { type: 'OUT', occurredAt: new Date(dayTwo.setHours(12, 30, 0, 0)) }
     ];
 
-    await prisma.clockEvent.createMany({ data: events });
+    for (const event of events) {
+      await request(app).post('/api/clock-events').send({
+        type: event.type,
+        occurredAt: event.occurredAt.toISOString()
+      });
+    }
 
     const from = toDateKey(new Date(base.getTime() - 3 * 24 * 60 * 60 * 1000));
     const to = toDateKey(new Date(base.getTime() - 2 * 24 * 60 * 60 * 1000));
