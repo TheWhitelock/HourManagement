@@ -9,6 +9,14 @@ let dbFilePath = null;
 let splashWindow = null;
 let logStream = null;
 
+const writeLog = (message) => {
+  const line = `[${new Date().toISOString()}] ${message}\n`;
+  if (logStream) {
+    logStream.write(line);
+  }
+  console.log(line.trim());
+};
+
 const getUnpackedPath = () => {
   const appPath = app.getAppPath();
   if (appPath.endsWith('app.asar')) {
@@ -23,6 +31,18 @@ const getServerEntry = () => {
   return entry;
 };
 
+const getServerVersion = () => {
+  try {
+    const unpacked = getUnpackedPath();
+    const pkgPath = path.join(unpacked, 'server', 'package.json');
+    const raw = fs.readFileSync(pkgPath, 'utf8');
+    const pkg = JSON.parse(raw);
+    return pkg?.version || 'unknown';
+  } catch (error) {
+    return 'unknown';
+  }
+};
+
 const getClientIndex = () => {
   const appPath = app.getAppPath();
   return path.join(appPath, 'client', 'dist', 'index.html');
@@ -30,6 +50,7 @@ const getClientIndex = () => {
 
 const startServer = () => {
   if (serverProcess) {
+    writeLog('startServer: server already running');
     return;
   }
 
@@ -40,10 +61,14 @@ const startServer = () => {
   logStream = fs.createWriteStream(logFile, { flags: 'a' });
 
   const serverEntry = getServerEntry();
-  logStream.write(`[${new Date().toISOString()}] Starting server\n`);
-  logStream.write(`[${new Date().toISOString()}] appPath=${app.getAppPath()}\n`);
-  logStream.write(`[${new Date().toISOString()}] serverEntry=${serverEntry}\n`);
-  logStream.write(`[${new Date().toISOString()}] dbFile=${dbFilePath}\n`);
+  const serverVersion = getServerVersion();
+  writeLog('startServer: initializing');
+  writeLog(`appPath=${app.getAppPath()}`);
+  writeLog(`unpackedPath=${getUnpackedPath()}`);
+  writeLog(`serverEntry=${serverEntry}`);
+  writeLog(`serverVersion=${serverVersion}`);
+  writeLog(`dbFile=${dbFilePath}`);
+  writeLog(`nodePath=${process.execPath}`);
 
   serverProcess = spawn(process.execPath, [serverEntry], {
     env: {
@@ -56,28 +81,32 @@ const startServer = () => {
     stdio: ['ignore', 'pipe', 'pipe']
   });
 
+  writeLog(`startServer: spawned pid=${serverProcess.pid}`);
+
   if (serverProcess.stdout) {
     serverProcess.stdout.on('data', (chunk) => {
-      logStream?.write(chunk);
+      writeLog(`server: ${chunk.toString().trimEnd()}`);
     });
   }
 
   if (serverProcess.stderr) {
     serverProcess.stderr.on('data', (chunk) => {
-      logStream?.write(chunk);
+      writeLog(`server: ${chunk.toString().trimEnd()}`);
     });
   }
 
   serverProcess.on('exit', () => {
-    logStream?.write(`[${new Date().toISOString()}] Server exited\n`);
+    writeLog('Server exited');
     serverProcess = null;
   });
 };
 
 const stopServer = () => {
   if (!serverProcess) {
+    writeLog('stopServer: no server process');
     return;
   }
+  writeLog('stopServer: stopping server process');
   serverProcess.kill();
   serverProcess = null;
   if (logStream) {
@@ -87,6 +116,7 @@ const stopServer = () => {
 };
 
 const createWindow = () => {
+  writeLog('createWindow: creating main window');
   const win = new BrowserWindow({
     width: 1200,
     height: 800,
@@ -99,13 +129,16 @@ const createWindow = () => {
   });
 
   if (process.env.ELECTRON_START_URL) {
+    writeLog(`createWindow: loading dev url ${process.env.ELECTRON_START_URL}`);
     win.loadURL(process.env.ELECTRON_START_URL);
   } else {
+    writeLog(`createWindow: loading file ${getClientIndex()}`);
     win.loadFile(getClientIndex());
   }
 };
 
 const createSplash = () => {
+  writeLog('createSplash: creating splash window');
   splashWindow = new BrowserWindow({
     width: 520,
     height: 320,
@@ -116,12 +149,14 @@ const createSplash = () => {
     show: true
   });
 
+  writeLog(`createSplash: loading file ${path.join(__dirname, 'splash.html')}`);
   splashWindow.loadFile(path.join(__dirname, 'splash.html'));
 };
 
 const waitForServer = ({ host, port, timeoutMs = 15000 }) =>
   new Promise((resolve, reject) => {
     const start = Date.now();
+    writeLog(`waitForServer: checking http://${host}:${port}/api/clock-status`);
 
     const attempt = () => {
       const req = http.get(
@@ -134,6 +169,7 @@ const waitForServer = ({ host, port, timeoutMs = 15000 }) =>
         (res) => {
           res.resume();
           if (res.statusCode && res.statusCode < 500) {
+            writeLog(`waitForServer: ready status=${res.statusCode}`);
             resolve();
           } else {
             retry();
@@ -150,6 +186,7 @@ const waitForServer = ({ host, port, timeoutMs = 15000 }) =>
 
     const retry = () => {
       if (Date.now() - start > timeoutMs) {
+        writeLog('waitForServer: timed out');
         reject(new Error('Server start timed out.'));
         return;
       }
@@ -160,36 +197,44 @@ const waitForServer = ({ host, port, timeoutMs = 15000 }) =>
   });
 
 app.whenReady().then(() => {
+  writeLog('app: ready');
   if (!process.env.ELECTRON_START_URL) {
     createSplash();
     startServer();
     waitForServer({ host: process.env.HOST || '127.0.0.1', port: process.env.PORT || 3001 })
       .then(() => {
+        writeLog('app: server ready, showing main window');
         createWindow();
         if (splashWindow) {
+          writeLog('app: closing splash window');
           splashWindow.close();
           splashWindow = null;
         }
       })
       .catch(() => {
+        writeLog('app: server not ready, showing main window anyway');
         createWindow();
         if (splashWindow) {
+          writeLog('app: closing splash window');
           splashWindow.close();
           splashWindow = null;
         }
       });
     return;
   }
+  writeLog('app: dev mode, starting main window only');
   createWindow();
 });
 
 app.on('activate', () => {
+  writeLog('app: activate');
   if (BrowserWindow.getAllWindows().length === 0) {
     createWindow();
   }
 });
 
 app.on('window-all-closed', () => {
+  writeLog('app: window-all-closed');
   stopServer();
   if (process.platform !== 'darwin') {
     app.quit();
@@ -197,6 +242,7 @@ app.on('window-all-closed', () => {
 });
 
 app.on('quit', () => {
+  writeLog('app: quit');
   stopServer();
 });
 

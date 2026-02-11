@@ -1,7 +1,7 @@
 {
   "name": "hour-management",
   "private": true,
-  "version": "0.1.2",
+  "version": "0.1.5",
   "description": "Local-first time tracking with a weekly dashboard and manual adjustments.",
   "author": "Hour Management",
   "main": "electron/main.cjs",
@@ -15,7 +15,8 @@
     "electron:dev": "wait-on http://localhost:5173 && wait-on http://127.0.0.1:3001/api/clock-status && cross-env ELECTRON_START_URL=http://localhost:5173 electron electron/main.cjs",
     "build": "npm run build --workspace client",
     "build:electron-client": "npm run build --workspace client -- --mode electron",
-    "electron:build": "npm run build:electron-client && electron-builder",
+    "build:server-deps": "npm install --omit=dev --no-workspaces --prefix server",
+    "electron:build": "npm run build:electron-client && npm run build:server-deps && electron-builder",
     "lint": "npm run lint --workspace client",
     "format": "prettier --write ."
   },
@@ -40,9 +41,16 @@
       "node_modules/sql.js/**",
       "package.json"
     ],
+    "extraResources": [
+      {
+        "from": "server/node_modules",
+        "to": "app.asar.unpacked/server/node_modules"
+      }
+    ],
     "asar": true,
     "asarUnpack": [
       "server/**",
+      "server/node_modules/**",
       "node_modules/sql.js/**"
     ],
     "win": {
