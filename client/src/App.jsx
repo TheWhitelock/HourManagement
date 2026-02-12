@@ -381,11 +381,10 @@ export default function App() {
     <div className="page">
       <header className="hero">
         <div className="hero-text">
-          <p className="eyebrow">Weekly timesheet</p>
-          <h1>Hour Management</h1>
+          <p className="eyebrow">Mom's personal timesheet</p>
+          <h1>Liliance</h1>
           <p className="subhead">
-            Track every clock-in and clock-out event, add manual history, and see your
-            weekly totals at a glance.
+            Track worked time and see your weekly totals at a glance.
           </p>
         </div>
         <div className="status-card">
@@ -398,13 +397,14 @@ export default function App() {
           <div className={`status-pill ${clockStatus.clockedIn ? 'in' : 'out'}`}>
             {clockStatus.clockedIn ? 'Clocked in' : 'Clocked out'}
           </div>
-          <p className="status-meta">
+          <p className="status-meta">Use the buttons below to clock in or out.</p>
+          {/* <p className="status-meta">
             {clockStatus.lastEvent
               ? `Last event: ${clockStatus.lastEvent.type === 'IN' ? 'Clock in' : 'Clock out'} - ${formatDateLabel(
                   clockStatus.lastEvent.occurredAt
                 )} ${formatTimeLabel(clockStatus.lastEvent.occurredAt)}`
               : 'No events yet'}
-          </p>
+          </p> */}
           <div className="status-actions">
             <button
               className="primary"
