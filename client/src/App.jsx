@@ -122,7 +122,7 @@ export default function App() {
       avgHours,
       bestDay
     };
-  }, [weekSummary]);
+  }, [weekSummary, selectedDateKey]);
 
   const chartMax = useMemo(
     () =>
@@ -224,6 +224,13 @@ export default function App() {
       return;
     }
 
+    const hasSelected = selectedDateKey
+      ? weekSummary.some((day) => toDateKey(new Date(day.date)) === selectedDateKey)
+      : false;
+    if (hasSelected) {
+      return;
+    }
+
     const todayKey = toDateKey(new Date());
     const inRange = weekSummary.some((day) => toDateKey(new Date(day.date)) === todayKey);
     const nextKey = inRange ? todayKey : toDateKey(new Date(weekSummary[0].date));
@@ -271,7 +278,16 @@ export default function App() {
   const handleManualSubmit = async (event) => {
     event.preventDefault();
     setStatus('Saving manual event...');
-    const parsed = new Date(manualForm.occurredAt);
+    if (!selectedDateKey) {
+      setStatus('Please select a day first.');
+      return;
+    }
+    if (!manualForm.occurredAt) {
+      setStatus('Please select a time.');
+      return;
+    }
+
+    const parsed = new Date(`${selectedDateKey}T${manualForm.occurredAt}:00`);
     if (Number.isNaN(parsed.getTime())) {
       setStatus('Please select a valid timestamp.');
       return;
@@ -381,23 +397,22 @@ export default function App() {
     <div className="page">
       <header className="hero">
         <div className="hero-text">
-          <p className="eyebrow">Mom's personal timesheet</p>
+          <p className="eyebrow">Because her time matters.</p>
           <h1>Liliance</h1>
           <p className="subhead">
-            Track worked time and see your weekly totals at a glance.
+            Clock in or out and see weekly totals at a glance.
           </p>
         </div>
         <div className="status-card">
           <div className="status-header">
             <p className="status-label">Current status</p>
             <span className={`status-badge ${serverOk ? 'ok' : 'down'}`}>
-              {serverOk ? 'Server: online' : 'Server: offline'}
+              {serverOk ? 'Server online' : 'Server offline'}
             </span>
           </div>
           <div className={`status-pill ${clockStatus.clockedIn ? 'in' : 'out'}`}>
             {clockStatus.clockedIn ? 'Clocked in' : 'Clocked out'}
           </div>
-          <p className="status-meta">Use the buttons below to clock in or out.</p>
           {/* <p className="status-meta">
             {clockStatus.lastEvent
               ? `Last event: ${clockStatus.lastEvent.type === 'IN' ? 'Clock in' : 'Clock out'} - ${formatDateLabel(
@@ -405,23 +420,26 @@ export default function App() {
                 )} ${formatTimeLabel(clockStatus.lastEvent.occurredAt)}`
               : 'No events yet'}
           </p> */}
+          <div className="status-divider" role="presentation" />
+          <p className="status-meta">Use the button below to change your status.</p>
           <div className="status-actions">
-            <button
-              className="primary"
-              onClick={() => handleClockAction('in')}
-              disabled={clockStatus.clockedIn}
-              type="button"
-            >
-              Clock in
-            </button>
-            <button
-              className="danger"
-              onClick={() => handleClockAction('out')}
-              disabled={!clockStatus.clockedIn}
-              type="button"
-            >
-              Clock out
-            </button>
+            {clockStatus.clockedIn ? (
+              <button
+                className="danger"
+                onClick={() => handleClockAction('out')}
+                type="button"
+              >
+                Clock out
+              </button>
+            ) : (
+              <button
+                className="primary"
+                onClick={() => handleClockAction('in')}
+                type="button"
+              >
+                Clock in
+              </button>
+            )}
           </div>
           {status && <p className="status">{status}</p>}
         </div>
@@ -450,14 +468,14 @@ export default function App() {
                     &gt;
                   </button>
                 </div>
-                <p className="card-subtitle">{weekRangeLabel}</p>
+                <p className="card-subtitle">Week range: {weekRangeLabel}</p>
               </div>
               <button
                 type="button"
                 className="ghost with-icon"
                 onClick={() => setShowSettings(true)}
               >
-                <FontAwesomeIcon icon={faGear} className="icon" fixedWidth aria-hidden="true" />
+                <FontAwesomeIcon icon={faGear} className="icon" aria-hidden="true" />
                 Settings
               </button>
             </div>
@@ -467,7 +485,7 @@ export default function App() {
                 <span className="stat-value">{weekStats.totalHours.toFixed(2)}h</span>
               </div>
               <div className="stat-card">
-                <span className="stat-label">Avg/day</span>
+                <span className="stat-label">Average per day</span>
                 <span className="stat-value">{weekStats.avgHours.toFixed(2)}h</span>
               </div>
               <div className="stat-card">
@@ -534,10 +552,10 @@ export default function App() {
           <div>
             <h2>
               {selectedEvents.date
-                ? `Events of ${formatDateLabel(selectedEvents.date)}`
+                ? `Events for ${formatDateLabel(selectedEvents.date)}`
                 : 'Events'}
             </h2>
-            <p className="card-subtitle">Review and remove clock history for the week.</p>
+            <p className="card-subtitle">Review or remove clock history.</p>
           </div>
           <div className="events-actions">
             <button
@@ -546,7 +564,7 @@ export default function App() {
               onClick={() => setIsManualOpen(true)}
             >
               <FontAwesomeIcon icon={faPlus} className="icon" aria-hidden="true" />
-              Add manual event
+              Add past event
             </button>
             <span className="count">{selectedEvents.events.length} total</span>
           </div>
@@ -575,7 +593,7 @@ export default function App() {
                         type="button"
                         onClick={() => handleDeleteEvent(event.id)}
                       >
-                        <FontAwesomeIcon icon={faTrash} className="icon" fixedWidth aria-hidden="true" />
+                        <FontAwesomeIcon icon={faTrash} className="icon" aria-hidden="true" />
                         Delete
                       </button>
                     </li>
@@ -594,16 +612,16 @@ export default function App() {
             <div className="modal-header">
               <div>
                 <h2>Chart settings</h2>
-                <p className="card-subtitle">Update your weekly graph defaults.</p>
+                <p className="card-subtitle">Update your weekly chart defaults.</p>
               </div>
               <button type="button" className="ghost with-icon" onClick={() => setShowSettings(false)}>
-                <FontAwesomeIcon icon={faXmark} className="icon" fixedWidth aria-hidden="true" />
-                Close
+                <FontAwesomeIcon icon={faXmark} className="icon" aria-hidden="true" />
               </button>
             </div>
             <div className="settings-grid">
               <label>
-                Target hours/day
+                Target hours per day
+                <span className="field-help">Used to draw the target line on the chart.</span>
                 <input
                   type="number"
                   min="0"
@@ -617,7 +635,8 @@ export default function App() {
                 />
               </label>
               <label>
-                Hours shown
+                Max hours shown
+                <span className="field-help">Sets the top of the chart scale.</span>
                 <input
                   type="number"
                   min="1"
@@ -657,8 +676,11 @@ export default function App() {
           <div className="modal-card" onClick={(event) => event.stopPropagation()}>
             <div className="modal-header">
               <div>
-                <h2>Add manual event</h2>
-                <p className="card-subtitle">Manual events can only be in the past.</p>
+                <h2>
+                  Add past clock event for{' '}
+                  {selectedDateKey ? formatDateLabel(selectedDateKey) : 'the selected day'}
+                </h2>
+                <p className="card-subtitle">Manually added events must be in the past.</p>
               </div>
               <button type="button" className="ghost with-icon" onClick={() => setIsManualOpen(false)}>
                 <FontAwesomeIcon icon={faXmark} className="icon" aria-hidden="true" />
@@ -666,20 +688,24 @@ export default function App() {
             </div>
             <form className="manual-form" onSubmit={handleManualSubmit}>
               <label>
-                Type
+                Event type
                 <select name="type" value={manualForm.type} onChange={handleManualChange}>
                   <option value="IN">Clock in</option>
                   <option value="OUT">Clock out</option>
                 </select>
               </label>
               <label>
-                When
+                Time
                 <input
-                  type="datetime-local"
+                  type="time"
                   name="occurredAt"
                   value={manualForm.occurredAt}
                   onChange={handleManualChange}
-                  max={toLocalDateTimeInputValue(new Date())}
+                  max={
+                    selectedDateKey === toDateKey(new Date())
+                      ? toLocalDateTimeInputValue(new Date()).slice(11, 16)
+                      : undefined
+                  }
                   required
                 />
               </label>
