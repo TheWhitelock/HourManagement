@@ -43,7 +43,7 @@ body {
   display: grid;
   grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr);
   gap: 32px;
-  align-items: center;
+  align-items: end;
   max-width: 1220px;
   margin: 0 auto 40px;
 }
@@ -144,8 +144,103 @@ body {
 .status-actions {
   display: flex;
   gap: 12px;
-  margin-bottom: 12px;
+  margin-bottom: 0;
   flex-wrap: wrap;
+}
+
+.clock-action {
+  --clock-accent: #1b5c4f;
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  min-width: min(100%, 280px);
+  padding: 17px 28px;
+  border-radius: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  font-size: clamp(1.15rem, 1.8vw, 1.45rem);
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  box-shadow: 0 10px 20px rgba(23, 18, 12, 0.16);
+  transition: none;
+}
+
+.clock-action::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: var(--hover-fill);
+  clip-path: circle(0% at 50% 50%);
+  transition: clip-path 0.52s ease-out;
+  z-index: 0;
+}
+
+.clock-action::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: var(--press-fill);
+  clip-path: circle(0% at 50% 50%);
+  transition: clip-path 0.38s ease-out;
+  z-index: 1;
+}
+
+.clock-action > * {
+  position: relative;
+  z-index: 2;
+}
+
+.clock-label {
+  position: relative;
+  z-index: 1;
+}
+
+.clock-action.is-in {
+  --clock-accent: #1b5c4f;
+  --hover-fill: #15453b;
+  --press-fill: #0f352d;
+  background: #1b5c4f;
+}
+
+.clock-action.is-out {
+  --clock-accent: #c05621;
+  --hover-fill: #8f3f17;
+  --press-fill: #6e2f11;
+  background: #c05621;
+}
+
+button.clock-action:hover:not(:disabled) {
+  transform: none;
+  box-shadow: 0 10px 20px rgba(23, 18, 12, 0.16);
+}
+
+button.clock-action:hover:not(:disabled)::after {
+  clip-path: circle(150% at 50% 50%);
+}
+
+button.clock-action:active:not(:disabled)::before {
+  clip-path: circle(150% at 50% 50%);
+}
+
+.clock-action:focus-visible {
+  outline: 3px solid color-mix(in srgb, var(--clock-accent) 55%, white);
+  outline-offset: 3px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .clock-action::after {
+    transition: none;
+  }
+
+  .clock-action::before {
+    transition: none;
+  }
 }
 
 .status-divider {

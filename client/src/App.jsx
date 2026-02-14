@@ -1,6 +1,6 @@
 ﻿import { useEffect, useMemo, useState } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faGear, faPlus, faTrash, faXmark } from '@fortawesome/free-solid-svg-icons';
+import { faClock, faGear, faPlus, faTrash, faXmark } from '@fortawesome/free-solid-svg-icons';
 import './App.css';
 
 const padNumber = (value) => String(value).padStart(2, '0');
@@ -399,9 +399,30 @@ export default function App() {
         <div className="hero-text">
           <p className="eyebrow">Because her time matters.</p>
           <h1>Liliance</h1>
-          <p className="subhead">
+          {/* <p className="subhead">
             Clock in or out and see weekly totals at a glance.
-          </p>
+          </p> */}
+          <div className="status-actions">
+            {clockStatus.clockedIn ? (
+              <button
+                className="clock-action danger is-out with-icon"
+                onClick={() => handleClockAction('out')}
+                type="button"
+              >
+                <FontAwesomeIcon icon={faClock} className="icon" aria-hidden="true" />
+                <span className="clock-label">Clock out</span>
+              </button>
+            ) : (
+              <button
+                className="clock-action primary is-in with-icon"
+                onClick={() => handleClockAction('in')}
+                type="button"
+              >
+                <FontAwesomeIcon icon={faClock} className="icon" aria-hidden="true" />
+                <span className="clock-label">Clock in</span>
+              </button>
+            )}
+          </div>
         </div>
         <div className="status-card">
           <div className="status-header">
@@ -420,28 +441,9 @@ export default function App() {
                 )} ${formatTimeLabel(clockStatus.lastEvent.occurredAt)}`
               : 'No events yet'}
           </p> */}
-          <div className="status-divider" role="presentation" />
+          {/* <div className="status-divider" role="presentation" />
           <p className="status-meta">Use the button below to change your status.</p>
-          <div className="status-actions">
-            {clockStatus.clockedIn ? (
-              <button
-                className="danger"
-                onClick={() => handleClockAction('out')}
-                type="button"
-              >
-                Clock out
-              </button>
-            ) : (
-              <button
-                className="primary"
-                onClick={() => handleClockAction('in')}
-                type="button"
-              >
-                Clock in
-              </button>
-            )}
-          </div>
-          {status && <p className="status">{status}</p>}
+          {status && <p className="status">{status}</p>} */}
         </div>
       </header>
 
