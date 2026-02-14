@@ -3,7 +3,7 @@
   "private": true,
   "version": "0.1.5",
   "description": "Local-first time tracking with a weekly dashboard and manual adjustments.",
-  "author": "Hour Management",
+  "author": "Liliance",
   "main": "electron/main.cjs",
   "workspaces": [
     "client",
@@ -28,8 +28,8 @@
   },
   "build": {
     "appId": "com.hourmanagement.app",
-    "productName": "Hour Management",
-    "artifactName": "HourManagement-Setup-${version}.${ext}",
+    "productName": "Liliance",
+    "artifactName": "Liliance-Setup-${version}.${ext}",
     "copyright": "Copyright © 2026",
     "directories": {
       "output": "dist-electron"
@@ -55,7 +55,7 @@
     ],
     "win": {
       "target": "nsis",
-      "publisherName": "Hour Management"
+      "publisherName": "Liliance"
     },
     "nsis": {
       "oneClick": false,
