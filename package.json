@@ -1,7 +1,7 @@
 {
   "name": "hour-management",
   "private": true,
-  "version": "0.1.6",
+  "version": "0.2.0",
   "description": "Local-first time tracking with a weekly dashboard and manual adjustments.",
   "author": "Liliance",
   "main": "electron/main.cjs",
@@ -72,3 +72,4 @@
     "wait-on": "^7.2.0"
   }
 }
+

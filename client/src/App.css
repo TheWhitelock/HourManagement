@@ -680,6 +680,27 @@ select:focus-visible {
   border: 1px solid rgba(146, 121, 92, 0.2);
 }
 
+.event-actions {
+  display: flex;
+  gap: 8px;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(2px);
+  transition: opacity 0.16s ease, transform 0.16s ease;
+}
+
+.events-list li:hover .event-actions,
+.events-list li:focus-within .event-actions {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateY(0);
+}
+
+.event-action {
+  padding: 8px 12px;
+  font-size: 0.95rem;
+}
+
 .event-title {
   margin: 0 0 4px;
   font-weight: 600;
@@ -755,6 +776,12 @@ select:focus-visible {
     flex-direction: column;
     align-items: flex-start;
     gap: 10px;
+  }
+
+  .event-actions {
+    opacity: 1;
+    pointer-events: auto;
+    transform: none;
   }
 
   .status-actions {

@@ -277,6 +277,48 @@ export const createApp = async ({ dbPath } = {}) => {
     res.status(201).json(event);
   });
 
+  app.put('/api/clock-events/:id', async (req, res) => {
+    const id = Number(req.params.id);
+    if (Number.isNaN(id)) {
+      res.status(400).json({ error: 'Invalid event id.' });
+      return;
+    }
+
+    const existing = getEventById(id);
+    if (!existing) {
+      res.status(404).json({ error: 'Event not found.' });
+      return;
+    }
+
+    const { type, occurredAt } = req.body;
+    const now = new Date();
+    const parsed = new Date(occurredAt);
+
+    if (!['IN', 'OUT'].includes(type)) {
+      res.status(400).json({ error: 'Type must be IN or OUT.' });
+      return;
+    }
+
+    if (!occurredAt || Number.isNaN(parsed.getTime())) {
+      res.status(400).json({ error: 'Valid occurredAt timestamp is required.' });
+      return;
+    }
+
+    if (parsed >= now) {
+      res.status(400).json({ error: 'Manual events must be in the past.' });
+      return;
+    }
+
+    await db.run(
+      `UPDATE clock_events
+       SET type = ?, occurredAt = ?
+       WHERE id = ?`,
+      [type, parsed.toISOString(), id]
+    );
+
+    res.json(getEventById(id));
+  });
+
   app.get('/api/clock-events/:id/impact', async (req, res) => {
     const id = Number(req.params.id);
     if (Number.isNaN(id)) {

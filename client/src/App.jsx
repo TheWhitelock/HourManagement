@@ -1,6 +1,6 @@
 ﻿import { useEffect, useMemo, useState } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faClock, faGear, faPlus, faTrash, faXmark } from '@fortawesome/free-solid-svg-icons';
+import { faClock, faGear, faPen, faPlus, faTrash, faXmark } from '@fortawesome/free-solid-svg-icons';
 import './App.css';
 
 const padNumber = (value) => String(value).padStart(2, '0');
@@ -95,11 +95,13 @@ export default function App() {
   const [showSettings, setShowSettings] = useState(false);
   const [settingsStatus, setSettingsStatus] = useState('');
   const [serverOk, setServerOk] = useState(true);
+  const [manualEditEventId, setManualEditEventId] = useState(null);
   const [manualForm, setManualForm] = useState({
     type: 'IN',
     occurredAt: ''
   });
   const hasDesktopBridge = typeof window !== 'undefined' && window.electronAPI;
+  const isEditingManualEvent = manualEditEventId !== null;
 
   const weekRangeLabel = useMemo(() => {
     const startLabel = formatDateLabel(weekRange.start);
@@ -275,9 +277,38 @@ export default function App() {
     setManualForm((prev) => ({ ...prev, [name]: value }));
   };
 
+  const resetManualForm = () => {
+    setManualForm({
+      type: 'IN',
+      occurredAt: ''
+    });
+    setManualEditEventId(null);
+  };
+
+  const closeManualModal = () => {
+    setIsManualOpen(false);
+    resetManualForm();
+  };
+
+  const handleStartCreateManualEvent = () => {
+    resetManualForm();
+    setIsManualOpen(true);
+  };
+
+  const handleStartEditManualEvent = (event) => {
+    const eventDate = new Date(event.occurredAt);
+    setSelectedDateKey(toDateKey(eventDate));
+    setManualEditEventId(event.id);
+    setManualForm({
+      type: event.type,
+      occurredAt: toLocalDateTimeInputValue(eventDate).slice(11, 16)
+    });
+    setIsManualOpen(true);
+  };
+
   const handleManualSubmit = async (event) => {
     event.preventDefault();
-    setStatus('Saving manual event...');
+    setStatus(isEditingManualEvent ? 'Saving event changes...' : 'Saving manual event...');
     if (!selectedDateKey) {
       setStatus('Please select a day first.');
       return;
@@ -298,16 +329,21 @@ export default function App() {
     }
 
     try {
-      const response = await fetch(apiUrl('/api/clock-events'), {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          type: manualForm.type,
-          occurredAt: parsed.toISOString()
-        })
-      });
+      const response = await fetch(
+        apiUrl(
+          isEditingManualEvent ? `/api/clock-events/${manualEditEventId}` : '/api/clock-events'
+        ),
+        {
+          method: isEditingManualEvent ? 'PUT' : 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            type: manualForm.type,
+            occurredAt: parsed.toISOString()
+          })
+        }
+      );
 
       if (!response.ok) {
         const data = await response.json().catch(() => ({}));
@@ -315,9 +351,8 @@ export default function App() {
         return;
       }
 
-      setStatus('Manual event added.');
-      setManualForm((prev) => ({ ...prev, occurredAt: '' }));
-      setIsManualOpen(false);
+      setStatus(isEditingManualEvent ? 'Event updated.' : 'Manual event added.');
+      closeManualModal();
       await loadWeek();
       setServerOk(true);
     } catch (error) {
@@ -563,7 +598,7 @@ export default function App() {
             <button
               type="button"
               className="primary with-icon"
-              onClick={() => setIsManualOpen(true)}
+              onClick={handleStartCreateManualEvent}
             >
               <FontAwesomeIcon icon={faPlus} className="icon" aria-hidden="true" />
               Add past event
@@ -590,14 +625,24 @@ export default function App() {
                         </p>
                         <p className="event-meta">{formatTimeLabel(event.occurredAt)}</p>
                       </div>
-                      <button
-                        className="ghost with-icon"
-                        type="button"
-                        onClick={() => handleDeleteEvent(event.id)}
-                      >
-                        <FontAwesomeIcon icon={faTrash} className="icon" aria-hidden="true" />
-                        Delete
-                      </button>
+                      <div className="event-actions">
+                        <button
+                          className="ghost with-icon event-action"
+                          type="button"
+                          onClick={() => handleStartEditManualEvent(event)}
+                        >
+                          <FontAwesomeIcon icon={faPen} className="icon" aria-hidden="true" />
+                          Edit
+                        </button>
+                        <button
+                          className="ghost with-icon event-action"
+                          type="button"
+                          onClick={() => handleDeleteEvent(event.id)}
+                        >
+                          <FontAwesomeIcon icon={faTrash} className="icon" aria-hidden="true" />
+                          Delete
+                        </button>
+                      </div>
                     </li>
                   ))}
                 </ul>
@@ -674,17 +719,17 @@ export default function App() {
       )}
 
       {isManualOpen && (
-        <div className="modal-backdrop" onClick={() => setIsManualOpen(false)}>
+        <div className="modal-backdrop" onClick={closeManualModal}>
           <div className="modal-card" onClick={(event) => event.stopPropagation()}>
             <div className="modal-header">
               <div>
                 <h2>
-                  Add past clock event for{' '}
+                  {isEditingManualEvent ? 'Edit clock event for' : 'Add past clock event for'}{' '}
                   {selectedDateKey ? formatDateLabel(selectedDateKey) : 'the selected day'}
                 </h2>
                 <p className="card-subtitle">Manually added events must be in the past.</p>
               </div>
-              <button type="button" className="ghost with-icon" onClick={() => setIsManualOpen(false)}>
+              <button type="button" className="ghost with-icon" onClick={closeManualModal}>
                 <FontAwesomeIcon icon={faXmark} className="icon" aria-hidden="true" />
               </button>
             </div>
@@ -712,15 +757,19 @@ export default function App() {
                 />
               </label>
               <div className="modal-actions">
-                <button type="button" className="ghost" onClick={() => setIsManualOpen(false)}>
+                <button type="button" className="ghost" onClick={closeManualModal}>
                   Cancel
                 </button>
                 <button
                   type="submit"
                   className="primary with-icon"
                 >
-                  <FontAwesomeIcon icon={faPlus} className="icon" aria-hidden="true" />
-                  Add event
+                  <FontAwesomeIcon
+                    icon={isEditingManualEvent ? faPen : faPlus}
+                    className="icon"
+                    aria-hidden="true"
+                  />
+                  {isEditingManualEvent ? 'Save changes' : 'Add event'}
                 </button>
               </div>
             </form>
