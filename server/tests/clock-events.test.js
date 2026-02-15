@@ -73,6 +73,27 @@ describe('clock events API', () => {
     expect(response.body.error).toMatch(/past/i);
   });
 
+  it('updates an existing manual event', async () => {
+    const original = new Date(Date.now() - 2 * 60 * 60 * 1000);
+    const updatedTime = new Date(Date.now() - 90 * 60 * 1000);
+
+    const created = await request(app).post('/api/clock-events').send({
+      type: 'IN',
+      occurredAt: original.toISOString()
+    });
+    expect(created.status).toBe(201);
+
+    const response = await request(app).put(`/api/clock-events/${created.body.id}`).send({
+      type: 'OUT',
+      occurredAt: updatedTime.toISOString()
+    });
+
+    expect(response.status).toBe(200);
+    expect(response.body.id).toBe(created.body.id);
+    expect(response.body.type).toBe('OUT');
+    expect(new Date(response.body.occurredAt).toISOString()).toBe(updatedTime.toISOString());
+  });
+
   it('deleting the latest event updates status based on remaining events', async () => {
     const now = new Date();
     const t1 = new Date(now.getTime() - 3 * 60 * 60 * 1000);
