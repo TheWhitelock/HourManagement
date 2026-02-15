@@ -434,9 +434,6 @@ export default function App() {
         <div className="hero-text">
           <p className="eyebrow">Because her time matters.</p>
           <h1>Liliance</h1>
-          {/* <p className="subhead">
-            Clock in or out and see weekly totals at a glance.
-          </p> */}
           <div className="status-actions">
             {clockStatus.clockedIn ? (
               <button
@@ -469,16 +466,6 @@ export default function App() {
           <div className={`status-pill ${clockStatus.clockedIn ? 'in' : 'out'}`}>
             {clockStatus.clockedIn ? 'Clocked in' : 'Clocked out'}
           </div>
-          {/* <p className="status-meta">
-            {clockStatus.lastEvent
-              ? `Last event: ${clockStatus.lastEvent.type === 'IN' ? 'Clock in' : 'Clock out'} - ${formatDateLabel(
-                  clockStatus.lastEvent.occurredAt
-                )} ${formatTimeLabel(clockStatus.lastEvent.occurredAt)}`
-              : 'No events yet'}
-          </p> */}
-          {/* <div className="status-divider" role="presentation" />
-          <p className="status-meta">Use the button below to change your status.</p>
-          {status && <p className="status">{status}</p>} */}
         </div>
       </header>
 

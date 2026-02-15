@@ -1,88 +1,123 @@
 # Hour Management
 
-Local-first time tracking with a weekly dashboard, manual adjustments, and a simple clock-in/out flow. The app runs a React + Vite client alongside an Express API backed by SQLite.
+Local-first time tracking with a weekly dashboard, clock in/out actions, and manual event management.
+The app runs a React + Vite client with an Express API backed by SQLite (`sql.js`, file-backed).
 
 ## Tech Stack
 
-- **Frontend:** React + Vite
-- **Backend:** Node.js + Express (REST)
-- **Database:** SQLite via `sql.js` (WASM, file-backed)
+- Frontend: React + Vite
+- Backend: Node.js + Express (REST API)
+- Database: SQLite via `sql.js` (WASM + on-disk DB file)
+- Desktop: Electron + electron-builder
 
-## Getting Started
-
-### Prerequisites
+## Prerequisites
 
 - Node.js 18+
 
-### Install dependencies
+## Getting Started
+
+### 1) Install dependencies
 
 ```bash
 npm install
 ```
 
-### Configure the database
+### 2) Configure server environment
 
 ```bash
 cp server/.env.example server/.env
 ```
 
-Set `DB_PATH` to choose where the SQLite file lives. The database file is created automatically on first run.
+Default values:
 
-### Optional: Configure the client API base
+- `DB_PATH="./dev.db"`
+- `HOST="127.0.0.1"`
+- `PORT=3001`
 
-If the client is served from a `file://` URL (desktop wrapper), set an API base URL.
+The database file is created automatically on first run.
+
+### 3) (Optional) Configure client API base
 
 ```bash
 cp client/.env.example client/.env
 ```
 
-### Start the app
+`VITE_API_BASE` is mainly useful when the client is loaded from `file://` (for example in Electron).
+
+### 4) Run web app (client + server)
 
 ```bash
 npm run dev
 ```
 
-- React app: <http://localhost:5173>
-- API server: <http://localhost:3001>
+- Client: <http://localhost:5173>
+- API: <http://127.0.0.1:3001>
 
 ## Desktop (Electron)
 
-### Run in development
+### Run desktop app in development
 
 ```bash
 npm run desktop:dev
 ```
 
-### Build a Windows installer
+This starts:
+
+- Vite dev server
+- Express API server
+- Electron app pointed at the Vite URL
+
+### Build Windows installer
 
 ```bash
 npm run electron:build
 ```
 
-The installer is written to `dist-electron/` (for example `dist-electron/HourManagement-Setup-0.0.1.exe`).
+Output is written to `dist-electron/` (for example `dist-electron/Liliance-Setup-0.2.0.exe`).
 
-### App icon
+### Desktop data location
 
-Electron Builder needs a Windows `.ico` file if you want a custom icon. Place it at
-`electron/assets/icon.ico` and then add `"icon": "electron/assets/icon.ico"` under the
-`build.win` section in `package.json`.
+In packaged Electron builds, the server DB is stored in Electron user data as:
+
+- `hour-management.db`
+
+You can open that folder from the app Settings modal (`Open data folder`) and export a `.db` backup (`Export backup`).
+
+## Scripts
+
+From repo root:
+
+- `npm run dev` - run client + server
+- `npm run desktop:dev` - run client + server + Electron dev shell
+- `npm run build` - build client only
+- `npm run build:electron-client` - build client with Electron base path
+- `npm run build:server-deps` - install production-only server deps
+- `npm run electron:build` - build desktop installer
+- `npm run lint` - lint client
+- `npm run format` - format repo with Prettier
+
+Workspace tests:
+
+- `npm run test --workspace client`
+- `npm run test --workspace server`
 
 ## REST API
 
 ### Clock status
 
-- `GET /api/clock-status` → current status + latest event
-- `POST /api/clock-in` → create an IN event for now
-- `POST /api/clock-out` → create an OUT event for now
+- `GET /api/clock-status` -> current clocked-in state + latest event
+- `POST /api/clock-in` -> create an `IN` event for now
+- `POST /api/clock-out` -> create an `OUT` event for now
 
 ### Events
 
-- `GET /api/clock-events?from=YYYY-MM-DD&to=YYYY-MM-DD` → list events in range
-- `POST /api/clock-events` → create a manual event (must be in the past)
-- `GET /api/clock-events/:id/impact` → see if deleting changes clock status
-- `DELETE /api/clock-events/:id` → delete an event
+- `GET /api/clock-events?from=YYYY-MM-DD&to=YYYY-MM-DD` -> list events in range
+- `POST /api/clock-events` -> create manual event (must be in the past)
+- `PUT /api/clock-events/:id` -> update manual event (must be in the past)
+- `GET /api/clock-events/:id/impact` -> preview status impact before delete
+- `DELETE /api/clock-events/:id` -> delete event
 
-Manual event payload:
+Manual create/update payload:
 
 ```json
 {
@@ -91,16 +126,16 @@ Manual event payload:
 }
 ```
 
-### Summaries
+### Summary
 
-- `GET /api/clock-summary?from=YYYY-MM-DD&to=YYYY-MM-DD` → daily totals for a range
+- `GET /api/clock-summary?from=YYYY-MM-DD&to=YYYY-MM-DD` -> daily totals for range
 
 ## UI Highlights
 
-- Weekly totals, averages, and best-day summaries.
-- Manual event entry and deletion with impact preview.
-- Settings stored in localStorage (target hours, chart scale).
-
-## Electron-ready
-
-The client + server can be bundled into Electron with minimal change. The REST endpoints and SQLite file are already local-first, which is ideal for Electron.
+- Weekly chart with per-day totals, weekly total, daily average, and best day.
+- Week navigation with selectable day columns and event list by selected date.
+- One-click clock in / clock out controls.
+- Manual past event add/edit/delete flows.
+- Delete impact preview when a removal may change current status.
+- Local settings persistence (`targetHours`, chart max scale) via `localStorage`.
+- Server online/offline indicator.
