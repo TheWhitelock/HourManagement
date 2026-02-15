@@ -1,9 +1,9 @@
-# Hour Management
+# Hour management (Liliance)
 
 Local-first time tracking with a weekly dashboard, clock in/out actions, and manual event management.
 The app runs a React + Vite client with an Express API backed by SQLite (`sql.js`, file-backed).
 
-## Tech Stack
+## Tech stack
 
 - Frontend: React + Vite
 - Backend: Node.js + Express (REST API)
@@ -14,7 +14,7 @@ The app runs a React + Vite client with an Express API backed by SQLite (`sql.js
 
 - Node.js 18+
 
-## Getting Started
+## Getting started
 
 ### 1) Install dependencies
 
@@ -130,7 +130,7 @@ Manual create/update payload:
 
 - `GET /api/clock-summary?from=YYYY-MM-DD&to=YYYY-MM-DD` -> daily totals for range
 
-## UI Highlights
+## UI highlights
 
 - Weekly chart with per-day totals, weekly total, daily average, and best day.
 - Week navigation with selectable day columns and event list by selected date.
